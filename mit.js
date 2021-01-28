@@ -10,13 +10,26 @@ const G = 6.6743e-11;
 let sm = 1.989e30, m = 5.972e24;
 let mu = G*sm;
 
+let time, stime, theta, stheta, M, sM, u;
+const tscale = 1e5;
+const vscale = sscale/tscale;
+
+let play = false, playButton;
+
 function setup() {
     createCanvas(1150, 600);
     r = createVector(-1.471e11, 0);
-    v = createVector(0, -3.029e4);
+    v = createVector(0, -3.429e4);
     //[c, f] = [createVector(0, 0), createVector(0, 0)];
     //[a, b] = [r.x/sscale, r.x/sscale];
     calo();
+
+    playButton = createButton('play', 'play/pause');
+    playButton.position(0, 0);
+    playButton.mouseClicked(() => {
+        play = !play;
+        playButton.html(play ? 'pause' : 'play');
+    });
 }
 
 function draw() {
@@ -25,6 +38,9 @@ function draw() {
     translate(400, 300);
     planetAndOrbit();
     star();
+    if (play) {
+        move(tscale);
+    }
 }
 
 let sx, sy;
@@ -60,22 +76,78 @@ function calo() {
         } else if (acs < -1) {
             acs = -1;
         }
-        let theta = acos(acs);
+        stheta = acos(acs);
         if (p5.Vector.dot(r, v) < 0) {
-            theta = TAU - theta;
+            stheta = TAU - stheta;
         }
         let apparentTheta = createVector(-100, 0).angleBetween(r);
         if (h.z>0) {
-            phi = apparentTheta-theta;
+            phi = apparentTheta-stheta;
         } else {
-            phi = apparentTheta+theta;
+            phi = apparentTheta+stheta;
         }
         c = createVector(-1, 0);
         c.rotate(phi);
         c.mult(-a*e);
         f = c.copy();
         f.mult(2);
+        time = 0;
+        theta = stheta+0;
+        acs = (e+cos(stheta)) / (1 + (e*cos(stheta)))
+        if (acs > 1) {
+            acs = 1;
+        } else if (acs < -1) {
+            acs = -1;
+        }
+        u = acos(acs);
+        if (p5.Vector.dot(r,v) < 0) {
+            u = TAU - u;
+        }
+        time=0;
+        sM = u - (e*sin(u));
+        
+        stime = -(T*sM/TAU);
     }
+}
+
+function move(delt) {
+    time += delt;
+    M = (2*Math.PI*time/T) + sM;
+    for (let i = 0; i < 100000; i++) {
+        u = M + (e*sin(u));
+    }
+    theta=acos((cos(u)-e)/(1-(e*cos(u))));
+    if ((time-stime)%T > T/2) {
+        theta = TAU - theta;
+    }
+    if (h.z > 0) {
+        theta += phi;
+    } else {
+        theta = -theta+phi;
+    }
+    r = createVector(-(sq(h.mag())/mu)/(1+(e*cos(theta-phi))));
+    
+    r.rotate(theta);
+    let speed = sqrt(2*(E+(mu/r.mag())));
+    let asn = h.mag()/(r.mag()*speed);
+    if (asn > 1) {
+        asn = 1;
+    } else if (asn < -1) {
+        asn = -1;
+    }
+    let rvtheta = asin(asn);
+    if ((time-stime)%T > T/2) {
+        rvtheta = PI - rvtheta;
+    }
+    v = r.copy();
+    if (h.z > 0) {
+        v.rotate(rvtheta);
+    } else {
+        v.rotate(-rvtheta);
+    }
+    v.normalize();
+    v.mult(speed);
+    
 }
 
 function star() {
@@ -108,9 +180,11 @@ function planetAndOrbit() {
     noStroke();
     let ed = 200 * 1.2742e7 / sscale;
     ellipse(x, y, ed, ed);
-    // if (resetting && (selected == 1 || selected == 0)) {
-    //     stroke(50, 50, 200);
-    //     line(0, 0, 10 * v.x / vscale, 10 * v.y / vscale);
-    // }
+    translate(x, y);
+    //if (resetting && (selected == 1 || selected == 0)) {
+        stroke(50, 50, 200);
+        line(0, 0, 10 * v.x / vscale, 10 * v.y / vscale);
+    //}
+    translate(-x, -y);
     
 }
